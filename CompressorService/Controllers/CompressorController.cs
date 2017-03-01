@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections;
 using System.IO;
 using CompressorService.Enums;
+using System.Web;
 
 namespace CompressorService.Controllers
 {
@@ -55,6 +56,7 @@ namespace CompressorService.Controllers
         /// <summary>
         /// Function which validates URL and Extensions.
         /// If validated compresses the image using ImageCompressor Library.
+        /// We can have single instance of Image Compressor.
         /// </summary>
         /// <param name="image">Image to be compressed</param>
         /// <returns>Compressed Image URL</returns>
@@ -158,7 +160,7 @@ namespace CompressorService.Controllers
         [HttpPost]
         public IHttpActionResult CompressImageFromFile([FromBody]string fileURL)
         {
-            if (validateExtension(fileURL, typeof(fileType)))
+            if (fileURL!=null && validateExtension(fileURL, typeof(fileType)))
             {
                 try
                 {
