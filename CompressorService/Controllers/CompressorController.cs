@@ -100,7 +100,7 @@ namespace CompressorService.Controllers
             try
             {
                 string compressedImagePath = Compress(image);
-                return Ok(new Image { imageId = 1, imageURL = compressedImagePath });
+                return Ok(new Image { imageId = image.imageId, imageURL = compressedImagePath });
             }
             catch (Exception ex)
             {
