@@ -31,6 +31,9 @@ development and testing this project.
 
 ###Deployment
 
+* Change BASEPATH variable(***ImageCompressor/Constants.cs***) 
+  to the location where you want to store compressed images. 
+  
 * Build entire solution in Visual Studio
 
 * Once build succeeded, make CompressorService project as a startup project.
@@ -39,6 +42,6 @@ development and testing this project.
 
 Your service will be deployed on http:localhost:portNumber.
 
-Append /swagger to the deployed address for exploring Compressor Service.
+Append ***/swagger*** to the deployed address for exploring Compressor Service.
 
 
