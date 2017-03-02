@@ -12,7 +12,7 @@ namespace CompressorService.Enums
     public enum fileType
     {
         csv,
-        xls
+        xlsx
     }
     
 }
