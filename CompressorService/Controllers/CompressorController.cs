@@ -4,7 +4,7 @@ using CompressorService.Contracts;
 using ImageCompressor;
 using CompressorService.Models;
 using System.Collections.Generic;
-using System.Collections;
+using System.Configuration;
 using System.IO;
 using CompressorService.Enums;
 using System.Web;
@@ -13,11 +13,40 @@ namespace CompressorService.Controllers
 {
     public class CompressorController : ApiController
     {
+        private string baseURL = HttpContext.Current.Request.ServerVariables["HTTP_HOST"];
+
+        private int compressImageQuality = Int16.Parse(ConfigurationManager.AppSettings["defaultCompressionQuality"]);
+        private static string compressedImageRelativePath = ConfigurationManager.AppSettings["compressedImageRelativePath"];
+        private static string csvResultFileRelativePath = ConfigurationManager.AppSettings["csvResultFileRelativePath"];
+        private static string csvDownloadFileRelativePath = ConfigurationManager.AppSettings["csvDownloadFileRelativePath"];
+        private string compressedImageFilePath;
+        private string csvResultFilePath;
+        private string csvDownloadFilePath;
+
+
+        public CompressorController()
+        {
+            compressedImageFilePath = HttpRuntime.AppDomainAppPath + compressedImageRelativePath;
+            csvResultFilePath = HttpRuntime.AppDomainAppPath + csvResultFileRelativePath;
+            csvDownloadFilePath = HttpRuntime.AppDomainAppPath + csvDownloadFileRelativePath;
+            
+            new FileInfo(compressedImageFilePath).Directory.Create();
+            new FileInfo(csvResultFilePath).Directory.Create();
+            new FileInfo(csvDownloadFilePath).Directory.Create();
+        }
+
+        public CompressorController(string defaultTestPath)
+        {
+            compressedImageFilePath = defaultTestPath + compressedImageRelativePath;
+            csvResultFilePath = defaultTestPath + csvResultFileRelativePath;
+            csvDownloadFilePath = defaultTestPath + csvDownloadFileRelativePath;
+        }
+
         /// <summary>
         /// Function to validate URL.
         /// Currently supported schemes Http and Https
         /// </summary>
-        /// <param name="imageURL">URL to be validated</param>
+        /// <param name="imageURL">URL to be validated.</param>
         /// <returns></returns>
         private bool validateURL(string URL)
         {
@@ -32,7 +61,8 @@ namespace CompressorService.Controllers
         /// Function to validate extension.
         /// Refer to Enums folder for supported extensions.
         /// </summary>
-        /// <param name="URL">URL to be validated</param>
+        /// <param name="URL">URL to be validated.</param>
+        /// <param name="enumType">Supported Enum type.</param>
         /// <returns></returns>
         private bool validateExtension(string URL, Type enumType)
         {
@@ -52,28 +82,25 @@ namespace CompressorService.Controllers
             return Ok("Welcome to Compressor Service.");
         }
 
-
         /// <summary>
         /// Function which validates URL and Extensions.
         /// If validated compresses the image using ImageCompressor Library.
         /// We can have single instance of Image Compressor.
         /// </summary>
-        /// <param name="image">Image to be compressed</param>
-        /// <returns>Compressed Image URL</returns>
+        /// <param name="image">Image to be compressed.</param>
+        /// <returns>Compressed Image URL.</returns>
         private string Compress(Image image)
         {
-            string extension = Path.GetExtension(image.imageURL);
             string compressedImageURL = "";
-
             if (validateURL(image.imageURL) &&
                 validateExtension(image.imageURL,typeof(imageFormat)))
             {
+                string extension = Path.GetExtension(image.imageURL);
                 try
                 {
                     ImageCompressor.ImageCompressor img = new ImageCompressor.ImageCompressor();
-
-                    //extension.Remove(0,1) removes . from the extension.
-                    compressedImageURL = img.CompressImage(image.imageURL, extension.Remove(0, 1));
+                    string fileName = img.CompressImage(image.imageURL, extension.Remove(0, 1),compressImageQuality,compressedImageFilePath);
+                    compressedImageURL = baseURL + "\\" + compressedImageRelativePath + fileName;
                 }
                 catch (Exception ex)
                 {
@@ -92,15 +119,20 @@ namespace CompressorService.Controllers
         /// Get an image from the request body.
         /// Uses compress function for compressing image.
         /// </summary>
-        /// <param name="image">Image to be compressed</param>
+        /// <param name="image">Image to be compressed.</param>
+        /// <param name="quality">Image compression quality.</param>
+        /// <param name="output">Response output.</param>
         /// <returns></returns>
         [HttpPost]
-        public IHttpActionResult CompressImage([FromBody]Image image)
+        public IHttpActionResult CompressImage([FromBody]Image image,int? quality = null,string output = null)
         {
             try
             {
-                string compressedImagePath = Compress(image);
-                return Ok(new Image { imageId = image.imageId, imageURL = compressedImagePath });
+                compressImageQuality = quality != null ? quality.Value : compressImageQuality;
+                string compressedImageURL = Compress(image);
+                Image compressedImage = new Image { imageId = image.imageId, imageURL = compressedImageURL };
+                IHttpActionResult response = GenerateOutput(compressedImage,output);
+                return response;
             }
             catch (Exception ex)
             {
@@ -113,32 +145,35 @@ namespace CompressorService.Controllers
         /// Get list of images from the request body.
         /// Uses compress function for compressing list of images.
         /// </summary>
-        /// <param name="images">List of images to be compressed</param>
+        /// <param name="images">List of images to be compressed.</param>
+        /// <param name="quality">Image compression quality.</param>
+        /// <param name="output">Response output.</param>
         /// <returns></returns>
         [HttpPost]
-        public IHttpActionResult CompressImages([FromBody]List<Image> images)
+        public IHttpActionResult CompressImages([FromBody]List<Image> images, int? quality = null, string output = null)
         {
             if (images!=null && images.Count > 0)
             {
+                compressImageQuality = quality != null ? quality.Value : compressImageQuality;
                 List<Image> compressedImages = new List<Image>();
 
                 for (int i = 0; i < images.Count; i++)
                 {
 
-                    string compressedImagePath = "";
+                    string compressedImageURL = "";
                     try
                     {
-                        compressedImagePath = Compress(images[i]);
+                        compressedImageURL = Compress(images[i]);
                     }
                     catch(Exception ex)
                     {
-                        compressedImagePath = ex.Message;
+                        compressedImageURL = ex.Message;
                     }
 
-                    compressedImages.Add(new Image { imageId = images[i].imageId, imageURL = compressedImagePath });
+                    compressedImages.Add(new Image { imageId = images[i].imageId, imageURL = compressedImageURL });
 
                 }
-                return Ok(compressedImages);
+                return GenerateOutput(compressedImages,output);
             }
             else
             {
@@ -156,15 +191,18 @@ namespace CompressorService.Controllers
         /// Uses compress function for compressing list of images.
         /// </summary>
         /// <param name="fileURL">URL of the file.</param>
+        /// <param name="quality">Image compression quality.</param>
+        /// <param name="output">Response output.</param>
         /// <returns></returns>
         [HttpPost]
-        public IHttpActionResult CompressImageFromFile([FromBody]string fileURL)
+        public IHttpActionResult CompressImageFromFile([FromBody]string fileURL, int? quality = null, string output = null)
         {
             if (fileURL!=null && validateExtension(fileURL, typeof(fileType)))
             {
                 try
                 {
-                    List<Image> images = FileParser.ParseFile(fileURL);
+                    compressImageQuality = quality != null ? quality.Value : compressImageQuality;
+                    List<Image> images = FileOperations.ParseFile(fileURL);
                     return CompressImages(images);
                 }
                 catch (Exception ex)
@@ -178,6 +216,128 @@ namespace CompressorService.Controllers
             }
         }
 
+        /// <summary>
+        /// Function for compressing raw image.
+        /// </summary>
+        /// <param name="rawImage">Raw image byte array.</param>
+        /// <returns></returns>
+        private string CompressImage(byte[] rawImage)
+        {
+            ImageCompressor.ImageCompressor compressor = new ImageCompressor.ImageCompressor();
+            string compressedImageURL = compressor.CompressImage(rawImage,compressImageQuality, compressedImageFilePath);
+            return compressedImageURL;
+        }
 
+        /// <summary>
+        /// Function exposed through API.
+        /// Function for compressing raw image.
+        /// </summary>
+        /// <param name="rawImage">Raw image byte array.</param>
+        /// <param name="quality">Image compression quality.</param>
+        /// <param name="output">Response output.</param>
+        /// <returns></returns>
+        public IHttpActionResult CompressRawImage([FromBody]byte[] rawImage, int? quality = null, string output = null)
+        {
+            try
+            {
+                compressImageQuality = quality != null ? quality.Value : compressImageQuality;
+                string fileName = CompressImage(rawImage);
+                string compressedImageURL = baseURL + "\\" + compressedImageRelativePath + fileName;
+                Image compressedImage = new Image { imageId = 1, imageURL = compressedImageURL };
+                return GenerateOutput(compressedImage,output);
+            }
+            catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        
+        }
+
+        /// <summary>
+        /// Function exposed through API.
+        /// Function for compressing list of raw images.
+        /// </summary>
+        /// <param name="rawImages">List of raw image byte array.</param>
+        /// <param name="quality">Image compression quality.</param>
+        /// <param name="output">Response output.</param>
+        /// <returns></returns>
+        public IHttpActionResult CompressRawImages([FromBody]List<byte[]> rawImages, int? quality = null, string output = null)
+        {
+            if (rawImages != null && rawImages.Count > 0)
+            {
+                compressImageQuality = quality != null ? quality.Value : compressImageQuality;
+                List<Image> compressedImages = new List<Image>();
+
+                for (int i = 0; i < rawImages.Count; i++)
+                {
+
+                    string compressedImageURL = "";
+                    try
+                    {
+                        compressedImageURL = CompressImage(rawImages[i]);
+                    }
+                    catch (Exception ex)
+                    {
+                        compressedImageURL = ex.Message;
+                    }
+
+                    compressedImages.Add(new Image { imageId = i+1, imageURL = compressedImageURL });
+
+                }
+                return GenerateOutput(compressedImages,output);
+            }
+            else
+            {
+                return BadRequest("No image to compress in the list.");
+            }
+
+        }
+
+        /// <summary>
+        /// Function exposed through API.
+        /// Function for compressing images in raw csv.
+        /// </summary>
+        /// <param name="rawImage">Raw csv byte array.</param>
+        /// <param name="quality">Image compression quality.</param>
+        /// <param name="output">Response output.</param>
+        /// <returns></returns>
+        public IHttpActionResult CompressRawCSV([FromBody]byte[] rawCSV, int? quality = null, string output = null)
+        {
+            try
+            {
+                compressImageQuality = quality != null ? quality.Value : compressImageQuality;
+                List<Image> compressedImages = FileOperations.ParseRawCSV(rawCSV, csvDownloadFilePath);
+                return CompressImages(compressedImages);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+
+        /// <summary>
+        /// Function for generating output based on output parameter.
+        /// </summary>
+        /// <param name="image">Compressed image or list of compressed images.</param>
+        /// <param name="output">Response output.</param>
+        /// <returns></returns>
+        private IHttpActionResult GenerateOutput(object image, string output)
+        {
+            if (output == null)
+            {
+                if (image is Image)
+                    return Ok(image as Image);
+                else
+                    return Ok(image as List<Image>);
+            }
+            else if (output.Equals("csv", StringComparison.InvariantCultureIgnoreCase))
+            {
+                string csvFileName = FileOperations.createCSVFile(image, csvResultFilePath);
+                return Ok(baseURL + "\\" + csvResultFileRelativePath + csvFileName);
+            }
+            else
+                return BadRequest("Output is not supported");
+        }
     }
 }

@@ -15,7 +15,7 @@ namespace ImageCompressor
         /// <param name="img">Image to be stored</param>
         /// <param name="extension">Extension of the image</param>
         /// <param name="quality">Quality of the compressed image.</param>
-        private void SaveJpeg(string path, Image img, string extension, int quality)
+        private void Save(string path, Image img, string extension, int quality)
         {
             if (quality < 0 || quality > 100)
                 throw new ImageCompressorException("quality must be between 0 and 100.");
@@ -63,11 +63,41 @@ namespace ImageCompressor
         }
 
         /// <summary>
+        /// Creates image from byte array.
+        /// </summary>
+        /// <param name="rawImage">Raw image byte array.</param>
+        /// <param name="fileName">File name as an output paramter.</param>
+        /// <param name="extension">Image extension.</param>
+        /// <returns></returns>
+        private Image CreateImageFromRawBytes(byte[] rawImage,out string fileName,out string extension)
+        {
+            try
+            {
+                fileName = DateTime.Now.Ticks.ToString();
+                Image image = Image.FromStream(new MemoryStream(rawImage));
+
+                if (ImageFormat.Png.Equals(image.RawFormat))
+                    extension = "png";
+                else if (ImageFormat.Jpeg.Equals(image.RawFormat))
+                    extension = "jpeg";
+                else
+                    throw new ImageCompressorException("Please provide valid Extension.");
+
+                fileName = fileName + '.' + extension;
+                return image;
+            }
+            catch (Exception ex)
+            {
+                throw new ImageCompressorException("Error while creating image from raw image data.");
+            }
+        }
+
+        /// <summary>
         /// Downloads the image from url and creates an Image object for downloaded image.
         /// </summary>
         /// <param name="imageURL">URL from where image will be downloaded</param>
         /// <returns></returns>
-        private static Image createImageFromImageURL(string imageURL)
+        private Image CreateImageFromImageURL(string imageURL)
         {
             try
             {
@@ -85,21 +115,40 @@ namespace ImageCompressor
 
         /// <summary>
         /// Given the image url and its extension this function will 
-        /// download and stores the compressed image on the disk with quality of 90.
-        /// Quality can be controlled from the API as well.(Need to pass parameter in this case.)
+        /// download and stores the compressed image on the disk with given quality.
         /// </summary>
-        /// <param name="imageURL">URL from where image will be downloaded</param>
+        /// <param name="imageURL">URL from where image will be downloaded.</param>
         /// <param name="extension">Extension of the image.</param>
+        /// <param name="quality">Compression quality.</param>
+        /// <param name="compressedImageFilePath">Compressed image file path.</param>
         /// <returns></returns>
-        public string CompressImage(string imageURL, string extension)
+        public string CompressImage(string imageURL, string extension,int quality,string compressedImageFilePath)
         {
 
             string fileName = Path.GetFileName(imageURL);
-            string compressedImageFilePath = Constants.BASEPATH + fileName;
-            Image img = createImageFromImageURL(imageURL);
-            SaveJpeg(compressedImageFilePath, img, extension, 90);
-            return compressedImageFilePath;
+            compressedImageFilePath = compressedImageFilePath + fileName;
+            Image img = CreateImageFromImageURL(imageURL);
+            Save(compressedImageFilePath, img, extension, 90);
+            return fileName;
 
+        }
+
+        /// <summary>
+        /// Given the raw image this function will 
+        /// creates and stores the compressed image on the disk with given quality.
+        /// </summary>
+        /// <param name="rawImage">Raw image byte array.</param>
+        /// <param name="quality">Compression quality.</param>
+        /// <param name="compressedImageFilePath">Compressed image file path.</param>
+        /// <returns></returns>
+        public string CompressImage(byte[] rawImage,int quality,string compressedImageFilePath)
+        {
+            string fileName;
+            string extension;
+            Image img = CreateImageFromRawBytes(rawImage,out fileName, out extension);
+            compressedImageFilePath = compressedImageFilePath + fileName;
+            Save(compressedImageFilePath, img, extension, quality);
+            return fileName;
         }
     }
 }

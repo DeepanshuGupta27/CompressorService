@@ -42,7 +42,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Constants.cs" />
     <Compile Include="ImageCompressor.cs" />
     <Compile Include="ImageCompressorException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

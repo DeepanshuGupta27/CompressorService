@@ -5,10 +5,11 @@ using System.IO;
 using System.Linq;
 using CompressorService.Enums;
 using System;
+using System.Text;
 
 namespace CompressorService
 {
-    public static class FileParser
+    public static class FileOperations
     {
         /// <summary>
         /// Decides which parser to use based on file extension and returns list of images.
@@ -70,6 +71,61 @@ namespace CompressorService
                             select new Image { imageId = c.imageId, imageURL = c.imageURL });
 
             return images;
+        }
+
+        /// <summary>
+        /// Creates csv file.
+        /// </summary>
+        /// <param name="content">CSV file content.</param>
+        /// <param name="csvResultFilePath">CSV file path.</param>
+        /// <returns></returns>
+        private static string createCSVFile(string content,string csvResultFilePath)
+        {
+            string fileName = DateTime.Now.Ticks.ToString()+".csv";
+            File.AppendAllText(csvResultFilePath + fileName, content);
+            return fileName;
+        }
+
+
+        /// <summary>
+        /// Function creates csv file content based on type of object.
+        /// </summary>
+        /// <param name="image">Compressed images or list of compressed images.</param>
+        /// <param name="csvResultFilePath">CSV file path.</param>
+        /// <returns></returns>
+        public static string createCSVFile(object image,string csvResultFilePath)
+        {
+            StringBuilder fileContent = new StringBuilder();
+            fileContent.AppendLine("ImageId,CompressedImageURL");
+            if (image is Image)
+            {
+                Image img = image as Image;
+                fileContent.AppendLine(img.ToString());
+            }
+            else
+            {
+                List<Image> images = image as List<Image>;
+                foreach (Image img in images)
+                {
+                    fileContent.AppendLine(img.ToString());
+                }
+            }
+
+            return createCSVFile(fileContent.ToString(), csvResultFilePath);
+        }
+
+        /// <summary>
+        /// Parses raw csv file and returns list of images to compress.
+        /// </summary>
+        /// <param name="rawCSV">Raw csv byte array.</param>
+        /// <param name="filePath">CSV file path.</param>
+        /// <returns></returns>
+        public static List<Image> ParseRawCSV(byte[] rawCSV,string filePath)
+        {
+            string fileName = DateTime.Now.Ticks.ToString() + ".csv";
+            filePath = filePath + fileName;
+            File.WriteAllBytes(filePath, rawCSV);
+            return ParseCSV(filePath);
         }
     }
 }

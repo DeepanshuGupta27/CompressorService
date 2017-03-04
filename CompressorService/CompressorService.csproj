@@ -156,7 +156,7 @@
   <ItemGroup>
     <Compile Include="App_Start\SwaggerConfig.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
-    <Compile Include="FileParser.cs" />
+    <Compile Include="FileOperations.cs" />
     <Compile Include="Contracts\ICompressor.cs" />
     <Compile Include="Controllers\CompressorController.cs" />
     <Compile Include="Enums\FileExtensions.cs" />
