@@ -31,9 +31,6 @@ development and testing this project.
 
 ###Deployment
 
-* Change BASEPATH variable(***ImageCompressor/Constants.cs***) 
-  to the location where you want to store compressed images. 
-  
 * Build entire solution in Visual Studio
 
 * Once build succeeded, make CompressorService project as a startup project.
